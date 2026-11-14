@@ -11,8 +11,6 @@ import {
   SiteMissionPayload,
 } from '@/lib/lunarScience';
 
-export const dynamic = 'force-dynamic';
-
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const HORIZONS_TIMEOUT_MS = 4000;
 
@@ -106,38 +104,53 @@ function parseHorizonsAscii(resultText: string): ParsedBodyRow[] {
   return rows;
 }
 
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function fetchHorizonsBody(
   site: LandingSite,
   command: '10' | '399'
 ): Promise<ParsedBodyRow[]> {
   const url = buildHorizonsUrl(site, command);
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'LunarHorizon-CLPS-MissionPlanner/1.0',
-    },
-    signal: AbortSignal.timeout(HORIZONS_TIMEOUT_MS),
-    cache: 'no-store',
-  });
+  const maxAttempts = 3;
 
-  if (!response.ok) {
-    throw new Error(`Horizons API HTTP ${response.status} for command ${command}`);
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'LunarHorizon-CLPS-MissionPlanner/1.0',
+      },
+      signal: AbortSignal.timeout(HORIZONS_TIMEOUT_MS),
+      cache: 'no-store',
+    });
+
+    if ((response.status === 503 || response.status === 429) && attempt < maxAttempts) {
+      await sleep(350 * attempt);
+      continue;
+    }
+
+    if (!response.ok) {
+      throw new Error(`Horizons API HTTP ${response.status} for command ${command}`);
+    }
+
+    const data = (await response.json()) as { result?: string; error?: string };
+    if (!data || typeof data.result !== 'string') {
+      throw new Error(data?.error ?? 'Malformed Horizons JSON payload');
+    }
+
+    const parsed = parseHorizonsAscii(data.result);
+    if (parsed.length < MISSION_HOURS) {
+      throw new Error(
+        `Insufficient Horizons rows (${parsed.length} < ${MISSION_HOURS}) for command ${command}`
+      );
+    }
+
+    return parsed.slice(0, MISSION_HOURS);
   }
 
-  const data = (await response.json()) as { result?: string; error?: string };
-  if (!data || typeof data.result !== 'string') {
-    throw new Error(data?.error ?? 'Malformed Horizons JSON payload');
-  }
-
-  const parsed = parseHorizonsAscii(data.result);
-  if (parsed.length < MISSION_HOURS) {
-    throw new Error(
-      `Insufficient Horizons rows (${parsed.length} < ${MISSION_HOURS}) for command ${command}`
-    );
-  }
-
-  return parsed.slice(0, MISSION_HOURS);
+  throw new Error(`Horizons API retry exhausted for command ${command}`);
 }
 
 async function getSiteMissionPayload(
@@ -159,10 +172,9 @@ async function getSiteMissionPayload(
   const fetchedAtUtc = new Date().toISOString();
 
   try {
-    const [sunRows, earthRows] = await Promise.all([
-      fetchHorizonsBody(site, '10'),
-      fetchHorizonsBody(site, '399'),
-    ]);
+    // Sequential per-body fetch avoids JPL Horizons concurrent burst HTTP 503 rate limits
+    const sunRows = await fetchHorizonsBody(site, '10');
+    const earthRows = await fetchHorizonsBody(site, '399');
 
     const ephemeris: EphemerisPoint[] = [];
     for (let i = 0; i < MISSION_HOURS; i++) {
@@ -226,16 +238,10 @@ export async function GET(request: NextRequest) {
   const forceRefresh = searchParams.get('refresh') === '1';
 
   if (siteParam === 'all') {
-    const payloads = await Promise.all(
-      SITE_LIST.map((site) => getSiteMissionPayload(site.id, forceRefresh))
-    );
-    const sitesRecord = payloads.reduce(
-      (acc, item) => {
-        acc[item.site.id] = item;
-        return acc;
-      },
-      {} as Record<SiteId, SiteMissionPayload>
-    );
+    const sitesRecord = {} as Record<SiteId, SiteMissionPayload>;
+    for (const site of SITE_LIST) {
+      sitesRecord[site.id] = await getSiteMissionPayload(site.id, forceRefresh);
+    }
 
     return NextResponse.json(
       {

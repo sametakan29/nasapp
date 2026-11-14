@@ -95,7 +95,7 @@ export const LANDING_SITES: Record<SiteId, LandingSite> = {
   malapert: {
     id: 'malapert',
     name: 'Malapert Massif',
-    subtitle: 'Peak of Eternal Light Candidate',
+    subtitle: 'Artemis III / CLPS Candidate',
     lat: -86.0,
     lon: 0.0,
     altKm: 5.0,
@@ -103,15 +103,15 @@ export const LANDING_SITES: Record<SiteId, LandingSite> = {
       'High-altitude South Polar massif plateau offering unobstructed near-continuous solar illumination and strong Direct-to-Earth (DTE) X-band visibility.',
     terrainProfile: 'High-altitude ridge; low horizon mask (0.2° to 1.1° across azimuths).',
     horizonMask: [
-      0.35, 0.40, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95, 1.05, 1.10, 0.95, 0.80,
-      0.65, 0.55, 0.50, 0.60, 0.75, 0.90, 1.00, 0.85, 0.70, 0.55, 0.45, 0.35,
-      0.30, 0.25, 0.20, 0.25, 0.30, 0.40, 0.50, 0.45, 0.35, 0.30, 0.25, 0.30,
+      0.35, 0.40, 0.45, 0.50, 0.55, 0.50, 0.45, 0.35, 0.28, 0.22, 0.20, 0.20,
+      0.25, 0.35, 0.50, 0.65, 0.80, 0.95, 1.05, 1.10, 1.00, 0.85, 0.70, 0.55,
+      0.45, 0.40, 0.35, 0.30, 0.30, 0.35, 0.40, 0.45, 0.40, 0.35, 0.30, 0.32,
     ],
   },
   shackleton: {
     id: 'shackleton',
     name: 'Shackleton Crater Rim',
-    subtitle: 'Connecting Ridge',
+    subtitle: 'Intuitive Machines IM-2 Target',
     lat: -89.68,
     lon: 129.2,
     altKm: 1.8,
@@ -119,15 +119,15 @@ export const LANDING_SITES: Record<SiteId, LandingSite> = {
       'Narrow topographic crest bordering the Shackleton Permanently Shadowed Region (PSR). Asymmetric crater walls cause rapid power and DTE transitions.',
     terrainProfile: 'Asymmetric rim (0.4° sunward, 4.5°–8.0° toward crater interior).',
     horizonMask: [
-      0.45, 0.40, 0.40, 0.45, 0.50, 0.55, 0.65, 0.75, 0.85, 0.95, 1.10, 1.25,
-      1.40, 1.65, 2.80, 4.60, 6.20, 7.50, 8.00, 7.10, 5.40, 3.20, 2.10, 1.75,
-      1.95, 1.30, 0.95, 0.75, 0.60, 0.50, 0.45, 0.40, 0.40, 0.45, 0.50, 0.45,
+      0.45, 0.40, 0.40, 0.45, 0.50, 0.55, 0.65, 0.75, 0.85, 0.95, 1.10, 1.35,
+      2.40, 4.50, 6.20, 7.50, 8.00, 6.80, 1.50, 1.05, 0.95, 0.90, 1.10, 1.40,
+      1.25, 1.85, 1.10, 0.75, 0.60, 0.50, 0.45, 0.40, 0.40, 0.45, 0.50, 0.45,
     ],
   },
   nobile: {
     id: 'nobile',
     name: 'Nobile Crater Rim',
-    subtitle: 'VIPER Target Region',
+    subtitle: 'NASA VIPER Target Region',
     lat: -85.2,
     lon: 53.5,
     altKm: 1.2,
@@ -266,7 +266,7 @@ export function computeMissionTelemetry(
   site: LandingSite,
   ephemeris: EphemerisPoint[],
   source: EphemerisSource,
-  fetchedAtUtc: string = new Date().toISOString()
+  fetchedAtUtc: string = MISSION_START_ISO
 ): SiteMissionPayload {
   const telemetry: HourlyTelemetry[] = [];
   let batteryWh = BATTERY_CAPACITY_WH * (INITIAL_SOC_PCT / 100);
@@ -291,23 +291,25 @@ export function computeMissionTelemetry(
     const isSunVisible = point.sunElev > terrainElevSun;
     const isEarthVisible = point.earthElev > terrainElevEarth;
 
+    const effectiveArrayAngleDeg = Math.min(
+      90,
+      (point.sunElev - terrainElevSun) * 5 + 35
+    );
     const solarPowerW = isSunVisible
       ? Number(
           (
             PEAK_SOLAR_ARRAY_W *
-            Math.max(0.15, Math.sin(degToRad(point.sunElev - terrainElevSun + 5)))
+            Math.max(0.15, Math.sin(degToRad(effectiveArrayAngleDeg)))
           ).toFixed(1)
         )
       : 0;
 
     const netPowerW = Number((solarPowerW - CONSTANT_LOAD_W).toFixed(1));
 
-    // Hour 0 begins at 85% SoC; each subsequent hour reflects accumulated net energy
-    if (i > 0) {
-      batteryWh = Math.min(BATTERY_CAPACITY_WH, Math.max(0, batteryWh + netPowerW));
-    }
-
+    // Hour 0 begins at 85% SoC; hourly net Wh is integrated across each 1-hour step
     const batterySocPct = Number(((batteryWh / BATTERY_CAPACITY_WH) * 100).toFixed(2));
+    const currentBatteryWh = batteryWh;
+    batteryWh = Math.min(BATTERY_CAPACITY_WH, Math.max(0, batteryWh + netPowerW));
     const criticalPowerAlert = batterySocPct < CRITICAL_SOC_PCT;
 
     const commsStatus = isEarthVisible
@@ -341,7 +343,7 @@ export function computeMissionTelemetry(
       earthClearanceDeg,
       solarPowerW,
       netPowerW,
-      batteryWh: Number(batteryWh.toFixed(1)),
+      batteryWh: Number(currentBatteryWh.toFixed(1)),
       batterySocPct,
       criticalPowerAlert,
       commsStatus,

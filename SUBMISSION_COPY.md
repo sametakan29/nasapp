@@ -24,9 +24,10 @@ At the Lunar South Pole, the Sun skims permanently along the horizon at low elev
 
 ---
 
-## 3. NASA Data & Open Tools Used
+## 3. NASA Data, Modeling Scope & Open Tools Used
+- **Attribution & Modeling Honesty:** Ephemeris data fetched live from NASA JPL Horizons System; terrain horizon masks are representative 360° profiles modeled after LRO LOLA South Pole elevation ranges; EPS battery telemetry uses a simplified 450W solar / 140W constant avionics load model.
 - **NASA JPL Horizons System (`ssd.jpl.nasa.gov/api/horizons.api`):** Used to compute hourly apparent topocentric Azimuth and Elevation ephemerides (`QUANTITIES='4'`, `DE441` planetary/lunar ephemeris) for the Sun (`10`) and Earth (`399`) relative to geodetic coordinates on the Moon (`coord@301`) from `2026-11-15` to `2026-11-29`.
-- **NASA Lunar Reconnaissance Orbiter (LRO) — Lunar Orbiter Laser Altimeter (LOLA):** Topographic elevation profiles and South Pole digital elevation characteristics of candidate CLPS/Artemis sites (**Malapert Massif**, **Shackleton Crater Rim**, and **Nobile Crater Rim**) used to construct each site's 36-point azimuth-dependent Horizon Elevation Mask.
+- **NASA Lunar Reconnaissance Orbiter (LRO) — Lunar Orbiter Laser Altimeter (LOLA):** South Pole elevation morphology and range parameters referenced to construct representative 36-point azimuth-dependent Horizon Elevation Masks for **Malapert Massif**, **Shackleton Crater Rim**, and **Nobile Crater Rim**.
 
 ---
 
@@ -65,7 +66,7 @@ At the Lunar South Pole, the Sun skims permanently along the horizon at low elev
 ### Slide 4: Mathematical & Physical Model
 - **Horizon Interpolation:** Linear angular interpolation of the 36-point terrain mask at `sun_az` and `earth_az`.
 - **Solar & EPS Equations:**
-  - `solar_power_w = 450 * max(0.15, sin(sun_elev - terrain_elev_sun + 5°))` when unoccluded, else `0 W`.
+  - `solar_power_w = 450 * max(0.15, sin(radians(min(90, (sun_elev - terrain_elev_sun) * 5 + 35))))` when unoccluded, else `0 W`.
   - Constant avionics + survival heater draw: `140 W`.
   - Hourly battery balance (`2400 Wh` capacity, `85%` initial SoC) with `< 20%` Critical Power Alert detection.
 - **Comms & Thermal:** X-band DTE lock (`1.28 s` one-way light-time) and `+45°C / -185°C` surface thermal regime.
@@ -76,9 +77,9 @@ At the Lunar South Pole, the Sun skims permanently along the horizon at low elev
 - **Timeline Scrubber:** Color-coded 336-hour bar (`Nominal`, `Partial Link`, `Full Blackout`) with `1h/s` simulation playback.
 
 ### Slide 6: Candidate Landing Site Trade-Off Analysis
-- **Malapert Massif (`-86.00°, 0.00°, 5.0 km`):** High-altitude ridge (`0.2°–1.1°` mask) — highest solar & DTE availability and top feasibility score.
-- **Shackleton Crater Rim (`-89.68°, 129.20°, 1.8 km`):** Asymmetric PSR rim (`0.4°–8.0°` mask) — frequent DTE and shadow transitions requiring tight power scheduling.
-- **Nobile Crater Rim (`-85.20°, 53.50°, 1.2 km`):** Rugged terrain (`1.5°–3.8°` mask) — prolonged eclipse windows driving critical battery depletion (`< 20%`).
+- **Malapert Massif (`Artemis III / CLPS Candidate`, `-86.00°, 0.00°, 5.0 km`):** High-altitude ridge (`0.2°–1.1°` mask) — highest solar & DTE availability and top feasibility score.
+- **Shackleton Crater Rim (`Intuitive Machines IM-2 Target`, `-89.68°, 129.20°, 1.8 km`):** Asymmetric PSR rim (`0.4°–8.0°` mask) — frequent DTE and shadow transitions requiring tight power scheduling.
+- **Nobile Crater Rim (`NASA VIPER Target Region`, `-85.20°, 53.50°, 1.2 km`):** Rugged terrain (`1.5°–3.8°` mask) — prolonged eclipse windows driving critical battery depletion (`< 20%`).
 
 ### Slide 7: Impact, Compliance & Future Roadmap
 - **Public & Zero-Auth:** Instant browser deployment (Next.js + Three.js) for educators, students, and mission analysts.
