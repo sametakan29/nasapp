@@ -101,16 +101,39 @@ function populateSiteTerrainGeometry(geometry: THREE.BufferGeometry, site: Landi
 
     pos.setZ(i, height);
 
-    // Vertex shading: dark lunar regolith base with subtle highland brightness on elevated ridges
-    const shade = Math.min(0.75, Math.max(0.24, 0.34 + height * 0.028 + 0.03 * deterministicNoise(x, worldZ, seed)));
-    colors[i * 3] = shade * 0.96;
-    colors[i * 3 + 1] = shade * 0.98;
-    colors[i * 3 + 2] = shade * 1.04;
+    // Vertex shading: readable lunar regolith with survey ring accents and bright highland crests
+    const ringHighlight =
+      Math.abs(r - 14) < 0.35 || Math.abs(r - 25) < 0.35 ? 0.06 : 0;
+    const shade = Math.min(
+      0.88,
+      Math.max(
+        0.44,
+        0.48 + height * 0.032 + 0.045 * deterministicNoise(x, worldZ, seed) + ringHighlight
+      )
+    );
+    colors[i * 3] = shade * 0.95;
+    colors[i * 3 + 1] = shade * 0.97;
+    colors[i * 3 + 2] = shade * 1.03;
   }
 
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   pos.needsUpdate = true;
   geometry.computeVertexNormals();
+}
+
+function populateHorizonCrestGeometry(geometry: THREE.BufferGeometry, site: LandingSite) {
+  const segments = 144;
+  const pts: THREE.Vector3[] = [];
+  for (let i = 0; i < segments; i++) {
+    const azDeg = (i / segments) * 360;
+    const azRad = degToRad(azDeg);
+    const maskElevDeg = interpolateHorizon(site.horizonMask, azDeg);
+    const crestHeight = RIM_RADIUS * Math.tan(degToRad(maskElevDeg)) * VERTICAL_EXAG * 1.14 + 0.12;
+    const x = RIM_RADIUS * Math.sin(azRad);
+    const z = -RIM_RADIUS * Math.cos(azRad);
+    pts.push(new THREE.Vector3(x, crestHeight, z));
+  }
+  geometry.setFromPoints(pts);
 }
 
 export default function LunarViewport3D({ site, current }: LunarViewport3DProps) {
@@ -122,8 +145,10 @@ export default function LunarViewport3D({ site, current }: LunarViewport3DProps)
     camera: THREE.PerspectiveCamera;
     controls: OrbitControls;
     terrainGeo: THREE.BufferGeometry;
+    horizonCrestGeo: THREE.BufferGeometry;
     sunLight: THREE.DirectionalLight;
     sunMesh: THREE.Mesh;
+    sunRayLine: THREE.Line;
     solarWingsPivot: THREE.Group;
     dishPivot: THREE.Group;
     beaconMesh: THREE.Mesh;
@@ -154,7 +179,7 @@ export default function LunarViewport3D({ site, current }: LunarViewport3DProps)
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    renderer.toneMappingExposure = 1.22;
     container.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -166,14 +191,17 @@ export default function LunarViewport3D({ site, current }: LunarViewport3DProps)
     controls.target.set(0, 1.2, 0);
     controls.update();
 
-    // Deep-space ambient + earthshine hemisphere fill so shadowed craters and lander remain legible
-    const ambientLight = new THREE.AmbientLight('#1e293b', 0.45);
+    // Bright lunar earthshine ambient + hemisphere fill (linear-space calibrated) + lander pad fill
+    const ambientLight = new THREE.AmbientLight('#94a3b8', 0.95);
     scene.add(ambientLight);
-    const hemiLight = new THREE.HemisphereLight('#1e293b', '#090d16', 0.45);
+    const hemiLight = new THREE.HemisphereLight('#cbd5e1', '#334155', 1.1);
     scene.add(hemiLight);
+    const landerFillLight = new THREE.PointLight('#e2e8f0', 1.4, 22);
+    landerFillLight.position.set(0, 6.5, 0);
+    scene.add(landerFillLight);
 
     // Dynamic Solar Directional Light (real-time shadow caster)
-    const sunLight = new THREE.DirectionalLight('#fff5db', 3.1);
+    const sunLight = new THREE.DirectionalLight('#fff7e6', 3.8);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 2048;
     sunLight.shadow.mapSize.height = 2048;
@@ -219,8 +247,8 @@ export default function LunarViewport3D({ site, current }: LunarViewport3DProps)
     populateSiteTerrainGeometry(terrainGeo, site);
     const terrainMat = new THREE.MeshStandardMaterial({
       vertexColors: true,
-      roughness: 0.94,
-      metalness: 0.04,
+      roughness: 0.82,
+      metalness: 0.02,
       flatShading: false,
     });
     const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
@@ -229,13 +257,26 @@ export default function LunarViewport3D({ site, current }: LunarViewport3DProps)
     terrainMesh.receiveShadow = true;
     scene.add(terrainMesh);
 
+    // Subtle 3D Horizon Mask Crest Ring at RIM_RADIUS
+    const horizonCrestGeo = new THREE.BufferGeometry();
+    populateHorizonCrestGeometry(horizonCrestGeo, site);
+    const horizonCrestMat = new THREE.LineBasicMaterial({
+      color: '#fb923c',
+      transparent: true,
+      opacity: 0.52,
+      fog: false,
+    });
+    const horizonCrestRing = new THREE.LineLoop(horizonCrestGeo, horizonCrestMat);
+    scene.add(horizonCrestRing);
+
     // Subtle Compass Ring around Landing Pad
     const ringGeo = new THREE.RingGeometry(4.4, 4.55, 64);
     const ringMat = new THREE.MeshBasicMaterial({
-      color: '#0ea5e9',
+      color: '#38bdf8',
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.35,
+      opacity: 0.55,
+      fog: false,
     });
     const compassRing = new THREE.Mesh(ringGeo, ringMat);
     compassRing.rotation.x = -Math.PI / 2;
@@ -245,40 +286,42 @@ export default function LunarViewport3D({ site, current }: LunarViewport3DProps)
     // North Tick Marker (-Z)
     const northTick = new THREE.Mesh(
       new THREE.BoxGeometry(0.18, 0.06, 0.9),
-      new THREE.MeshBasicMaterial({ color: '#38bdf8' })
+      new THREE.MeshBasicMaterial({ color: '#38bdf8', fog: false })
     );
     northTick.position.set(0, 0.07, -4.9);
     scene.add(northTick);
 
-    // CLPS Lander Procedural Model (scaled 1.25x for shadow readability)
+    // CLPS Lander Procedural Model (scaled 1.25x, non-black aerospace materials)
     const landerGroup = new THREE.Group();
     landerGroup.scale.setScalar(1.25);
 
     const goldFoilMat = new THREE.MeshStandardMaterial({
-      color: '#d97706',
-      emissive: '#451a03',
-      emissiveIntensity: 0.25,
-      roughness: 0.32,
-      metalness: 0.82,
+      color: '#f59e0b',
+      emissive: '#b45309',
+      emissiveIntensity: 0.38,
+      roughness: 0.36,
+      metalness: 0.22,
     });
     const titaniumMat = new THREE.MeshStandardMaterial({
-      color: '#cbd5e1',
-      emissive: '#1e293b',
-      emissiveIntensity: 0.28,
-      roughness: 0.45,
-      metalness: 0.65,
+      color: '#f1f5f9',
+      emissive: '#475569',
+      emissiveIntensity: 0.32,
+      roughness: 0.38,
+      metalness: 0.18,
     });
     const darkCarbonMat = new THREE.MeshStandardMaterial({
-      color: '#1e293b',
-      roughness: 0.65,
-      metalness: 0.4,
+      color: '#64748b',
+      emissive: '#334155',
+      emissiveIntensity: 0.3,
+      roughness: 0.45,
+      metalness: 0.2,
     });
     const solarPanelMat = new THREE.MeshStandardMaterial({
-      color: '#1d4ed8',
-      emissive: '#1e3a8a',
-      emissiveIntensity: 0.42,
-      roughness: 0.22,
-      metalness: 0.7,
+      color: '#2563eb',
+      emissive: '#1d4ed8',
+      emissiveIntensity: 0.5,
+      roughness: 0.25,
+      metalness: 0.18,
     });
 
     // Descent Stage Bus
@@ -315,18 +358,26 @@ export default function LunarViewport3D({ site, current }: LunarViewport3DProps)
       landerGroup.add(legPivot);
     }
 
-    // Gimbaled Solar Wings Pivot (rotates toward Sun Azimuth)
+    // Gimbaled Solar Wings Pivot (rotates toward Sun Azimuth) with titanium frame borders
     const solarWingsPivot = new THREE.Group();
     solarWingsPivot.position.y = 1.55;
-    const leftWing = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.05, 0.68), solarPanelMat);
+    const wingFrameGeo = new THREE.BoxGeometry(1.66, 0.035, 0.74);
+    const leftWingFrame = new THREE.Mesh(wingFrameGeo, titaniumMat);
+    leftWingFrame.position.x = -1.7;
+    leftWingFrame.rotation.x = 0.2;
+    const rightWingFrame = new THREE.Mesh(wingFrameGeo, titaniumMat);
+    rightWingFrame.position.x = 1.7;
+    rightWingFrame.rotation.x = 0.2;
+
+    const leftWing = new THREE.Mesh(new THREE.BoxGeometry(1.56, 0.055, 0.64), solarPanelMat);
     leftWing.position.x = -1.7;
     leftWing.rotation.x = 0.2;
     leftWing.castShadow = true;
-    const rightWing = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.05, 0.68), solarPanelMat);
+    const rightWing = new THREE.Mesh(new THREE.BoxGeometry(1.56, 0.055, 0.64), solarPanelMat);
     rightWing.position.x = 1.7;
     rightWing.rotation.x = 0.2;
     rightWing.castShadow = true;
-    solarWingsPivot.add(leftWing, rightWing);
+    solarWingsPivot.add(leftWingFrame, rightWingFrame, leftWing, rightWing);
     landerGroup.add(solarWingsPivot);
 
     // High-Gain X-Band Dish Pivot (rotates toward Earth Azimuth)
@@ -362,6 +413,19 @@ export default function LunarViewport3D({ site, current }: LunarViewport3DProps)
       new THREE.MeshBasicMaterial({ color: '#fde047', fog: false })
     );
     scene.add(sunMesh);
+
+    // Solar Ray Vector Line (amber when sunlit, dimmed orange when terrain-occluded)
+    const sunRayOrigin = new THREE.Vector3(0, 1.94, 0);
+    const sunRayInitEnd = new THREE.Vector3(40, 4, 0);
+    const sunRayGeo = new THREE.BufferGeometry().setFromPoints([sunRayOrigin, sunRayInitEnd]);
+    const sunRayMat = new THREE.LineBasicMaterial({
+      color: '#fbbf24',
+      transparent: true,
+      opacity: 0.72,
+      fog: false,
+    });
+    const sunRayLine = new THREE.Line(sunRayGeo, sunRayMat);
+    scene.add(sunRayLine);
 
     // Earth Sky Sphere Indicator
     const earthMesh = new THREE.Mesh(
@@ -402,8 +466,10 @@ export default function LunarViewport3D({ site, current }: LunarViewport3DProps)
       camera,
       controls,
       terrainGeo,
+      horizonCrestGeo,
       sunLight,
       sunMesh,
+      sunRayLine,
       solarWingsPivot,
       dishPivot,
       beaconMesh,
@@ -447,8 +513,13 @@ export default function LunarViewport3D({ site, current }: LunarViewport3DProps)
       controls.dispose();
       terrainGeo.dispose();
       terrainMat.dispose();
+      horizonCrestGeo.dispose();
+      horizonCrestMat.dispose();
+      wingFrameGeo.dispose();
       starGeo.dispose();
       starMat.dispose();
+      sunRayGeo.dispose();
+      sunRayMat.dispose();
       solidGeo.dispose();
       solidMat.dispose();
       dashedGeo.dispose();
@@ -467,6 +538,7 @@ export default function LunarViewport3D({ site, current }: LunarViewport3DProps)
     const refs = sceneRefs.current;
     if (!refs) return;
     populateSiteTerrainGeometry(refs.terrainGeo, site);
+    populateHorizonCrestGeometry(refs.horizonCrestGeo, site);
   }, [site]);
 
   // Update Sun shadow directional light, Earth DTE beam, and Lander telemetry visuals every hour tick
@@ -480,17 +552,24 @@ export default function LunarViewport3D({ site, current }: LunarViewport3DProps)
     refs.sunLight.target.position.set(0, 0, 0);
     refs.sunLight.target.updateMatrixWorld();
 
-    // Keep dramatic rim shadow casting whenever Sun is above -0.5 deg; dim smoothly below true horizon
+    // Keep dramatic rim shadow casting whenever Sun is above -0.5 deg; maintain directional readability below horizon
     const sunIntensity =
       current.sunElev >= 0
-        ? 3.2
-        : Math.max(0.15, 3.2 * (1 + current.sunElev / 2));
+        ? 3.8
+        : Math.max(0.45, 3.8 * (1 + current.sunElev / 2));
     refs.sunLight.intensity = sunIntensity;
 
     refs.sunMesh.position.copy(sunDir).multiplyScalar(78);
     (refs.sunMesh.material as THREE.MeshBasicMaterial).color.set(
       current.isSunVisible ? '#fde047' : '#fb923c'
     );
+
+    const sunRayStart = new THREE.Vector3(0, 1.94, 0);
+    const sunRayEnd = sunDir.clone().multiplyScalar(68);
+    refs.sunRayLine.geometry.setFromPoints([sunRayStart, sunRayEnd]);
+    const sunRayMaterial = refs.sunRayLine.material as THREE.LineBasicMaterial;
+    sunRayMaterial.color.set(current.isSunVisible ? '#fbbf24' : '#f97316');
+    sunRayMaterial.opacity = current.isSunVisible ? 0.65 : 0.28;
 
     // Orient lander solar wings and X-band dish toward live Sun & Earth azimuths
     refs.solarWingsPivot.rotation.y = Math.PI - degToRad(current.sunAz);
@@ -549,7 +628,7 @@ export default function LunarViewport3D({ site, current }: LunarViewport3DProps)
       <div ref={containerRef} className="h-full w-full cursor-grab active:cursor-grabbing" />
 
       {/* Top-Left Camera Preset Switcher Overlay */}
-      <div className="pointer-events-auto absolute left-3 top-3 flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-800/90 bg-[#080D1A]/85 p-1.5 backdrop-blur-md">
+      <div className="pointer-events-auto absolute left-3 top-3 flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-700/80 bg-slate-900/90 p-1.5 shadow-lg backdrop-blur-md">
         <span className="px-1.5 font-mono text-[10px] uppercase tracking-wider text-slate-400">
           CAM
         </span>
@@ -593,12 +672,12 @@ export default function LunarViewport3D({ site, current }: LunarViewport3DProps)
 
       {/* Top-Right Site Coordinates & Shadow Status Overlay */}
       <div className="pointer-events-none absolute right-3 top-3 flex flex-col items-end gap-1.5">
-        <div className="rounded-lg border border-slate-800/90 bg-[#080D1A]/85 px-3 py-1.5 font-mono text-[10px] backdrop-blur-md">
-          <div className="flex items-center gap-1.5 text-slate-200">
+        <div className="rounded-lg border border-slate-700/80 bg-slate-900/90 px-3 py-1.5 font-mono text-[10px] shadow-lg backdrop-blur-md">
+          <div className="flex items-center gap-1.5 text-slate-100">
             <Compass className="h-3 w-3 text-cyan-400" />
             <span className="font-semibold">{site.name}</span>
           </div>
-          <div className="mt-0.5 text-slate-400">
+          <div className="mt-0.5 text-slate-300">
             {site.lat.toFixed(2)}° Lat, {site.lon.toFixed(2)}° Lon | Alt +{site.altKm.toFixed(1)} km
           </div>
         </div>
@@ -615,8 +694,10 @@ export default function LunarViewport3D({ site, current }: LunarViewport3DProps)
       </div>
 
       {/* Bottom-Left Controls Hint & DTE Legend */}
-      <div className="pointer-events-none absolute bottom-3 left-3 flex flex-wrap items-center gap-3 rounded-md border border-slate-800/80 bg-[#080D1A]/80 px-2.5 py-1 font-mono text-[10px] text-slate-400 backdrop-blur-md">
+      <div className="pointer-events-none absolute bottom-3 left-3 flex flex-wrap items-center gap-2.5 rounded-md border border-slate-700/80 bg-slate-900/90 px-2.5 py-1 font-mono text-[10px] text-slate-300 shadow-lg backdrop-blur-md">
         <span>Drag: Orbit | Scroll: Zoom | Right-Drag: Pan</span>
+        <span className="text-slate-600">|</span>
+        <span className="text-amber-300">━━ Amber: Sun Vector</span>
         <span className="text-slate-600">|</span>
         <span className={current.isEarthVisible ? 'text-cyan-300' : 'text-red-400'}>
           {current.isEarthVisible
@@ -624,7 +705,7 @@ export default function LunarViewport3D({ site, current }: LunarViewport3DProps)
             : '┄┄ Red Dashed: Earth LOS Occluded'}
         </span>
         <span className="text-slate-600">|</span>
-        <span className="text-slate-500">(Angles visually scaled)</span>
+        <span className="text-slate-400">(Angles visually scaled)</span>
       </div>
     </div>
   );

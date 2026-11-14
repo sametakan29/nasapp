@@ -82,10 +82,10 @@ export default function PolarHorizonRadar({
   const ringLevels = [6, 4, 2, 0];
 
   return (
-    <div className="rounded-lg border border-slate-800 bg-[#0B1120] p-3">
+    <div className="rounded-xl border border-slate-700/80 bg-slate-900/90 p-3 shadow-md">
       <div className="mb-2 flex items-center justify-between">
         <div>
-          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-300">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-200">
             360° Polar Horizon Radar
           </h3>
           <p className="text-[10px] text-slate-400">
@@ -93,11 +93,11 @@ export default function PolarHorizonRadar({
           </p>
         </div>
         <div className="flex items-center gap-2.5 text-[10px] font-mono">
-          <span className="flex items-center gap-1 text-amber-400">
+          <span className="flex items-center gap-1 text-amber-300">
             <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />
             SUN
           </span>
-          <span className="flex items-center gap-1 text-cyan-400">
+          <span className="flex items-center gap-1 text-cyan-300">
             <span className="inline-block h-2 w-2 rotate-45 bg-cyan-400" />
             EARTH
           </span>
@@ -119,11 +119,11 @@ export default function PolarHorizonRadar({
               patternTransform="rotate(45 0 0)"
               patternUnits="userSpaceOnUse"
             >
-              <line x1="0" y1="0" x2="0" y2="6" stroke="#ef4444" strokeWidth="1" strokeOpacity="0.22" />
+              <line x1="0" y1="0" x2="0" y2="6" stroke="#f87171" strokeWidth="1" strokeOpacity="0.28" />
             </pattern>
             <radialGradient id="skyDomeGrad" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#0f172a" />
-              <stop offset="100%" stopColor="#05080f" />
+              <stop offset="0%" stopColor="#1e293b" />
+              <stop offset="100%" stopColor="#090f1d" />
             </radialGradient>
           </defs>
 
@@ -133,7 +133,7 @@ export default function PolarHorizonRadar({
             cy={CY}
             r={MAX_R}
             fill="url(#skyDomeGrad)"
-            stroke="#1e293b"
+            stroke="#334155"
             strokeWidth="1.2"
           />
 
@@ -145,8 +145,8 @@ export default function PolarHorizonRadar({
           />
           <path
             d={terrainFillPath}
-            fill="#ef4444"
-            fillOpacity="0.09"
+            fill="#f87171"
+            fillOpacity="0.12"
             fillRule="evenodd"
           />
 
@@ -160,15 +160,15 @@ export default function PolarHorizonRadar({
                   cy={CY}
                   r={r}
                   fill="none"
-                  stroke={elev === 0 ? '#475569' : '#1e293b'}
+                  stroke={elev === 0 ? '#64748b' : '#334155'}
                   strokeWidth={elev === 0 ? '1' : '0.8'}
                   strokeDasharray={elev === 0 ? '3 3' : undefined}
                 />
                 <text
                   x={CX + 3}
                   y={CY - r + 9}
-                  fill="#64748b"
-                  fontSize="8"
+                  fill="#94a3b8"
+                  fontSize="8.5"
                   fontFamily="monospace"
                 >
                   {elev}°

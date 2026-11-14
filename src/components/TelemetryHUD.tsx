@@ -33,7 +33,7 @@ export default function TelemetryHUD({
   current,
   onSelectHour,
 }: TelemetryHUDProps) {
-  const { socPath, criticalY } = useMemo(() => {
+  const { socPath, socAreaPath, criticalY } = useMemo(() => {
     const w = 320;
     const h = 76;
     const padY = 6;
@@ -46,10 +46,15 @@ export default function TelemetryHUD({
       return `${idx === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
     });
 
+    const linePath = points.join(' ');
+    const areaPath =
+      points.length > 0 ? `${linePath} L ${w} ${h - padY} L 0 ${h - padY} Z` : '';
+
     const critY = padY + (1 - CRITICAL_SOC_PCT / 100) * usableH;
 
     return {
-      socPath: points.join(' '),
+      socPath: linePath,
+      socAreaPath: areaPath,
       criticalY: critY,
     };
   }, [telemetry]);
@@ -86,15 +91,15 @@ export default function TelemetryHUD({
       )}
 
       {/* 1. Solar Illumination & Power Card */}
-      <div className="rounded-lg border border-slate-800 bg-[#0B1120] p-3">
+      <div className="rounded-xl border border-slate-700/80 bg-slate-900/90 p-3 shadow-md">
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <Sun
               className={`h-3.5 w-3.5 ${
-                current.isSunVisible ? 'text-amber-400' : 'text-slate-500'
+                current.isSunVisible ? 'text-amber-400' : 'text-slate-400'
               }`}
             />
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-300">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-200">
               Solar Illumination &amp; Array
             </span>
           </div>
@@ -110,8 +115,8 @@ export default function TelemetryHUD({
         </div>
 
         <div className="grid grid-cols-3 gap-2 font-mono">
-          <div className="rounded border border-slate-800/80 bg-[#05080F] px-2 py-1.5">
-            <div className="text-[9px] uppercase text-slate-500">Sun Elev</div>
+          <div className="rounded-lg border border-slate-700/60 bg-slate-800/65 px-2 py-1.5">
+            <div className="text-[9px] uppercase text-slate-400">Sun Elev</div>
             <div
               className={`text-sm font-semibold ${
                 current.isSunVisible ? 'text-amber-300' : 'text-red-400'
@@ -121,17 +126,17 @@ export default function TelemetryHUD({
               {current.sunElev.toFixed(2)}°
             </div>
           </div>
-          <div className="rounded border border-slate-800/80 bg-[#05080F] px-2 py-1.5">
-            <div className="text-[9px] uppercase text-slate-500">Horizon Mask</div>
+          <div className="rounded-lg border border-slate-700/60 bg-slate-800/65 px-2 py-1.5">
+            <div className="text-[9px] uppercase text-slate-400">Horizon Mask</div>
             <div className="text-sm font-semibold text-orange-400">
               {current.terrainElevSun.toFixed(2)}°
             </div>
           </div>
-          <div className="rounded border border-slate-800/80 bg-[#05080F] px-2 py-1.5">
-            <div className="text-[9px] uppercase text-slate-500">Solar Output</div>
+          <div className="rounded-lg border border-slate-700/60 bg-slate-800/65 px-2 py-1.5">
+            <div className="text-[9px] uppercase text-slate-400">Solar Output</div>
             <div
               className={`text-sm font-semibold ${
-                current.solarPowerW > 0 ? 'text-emerald-400' : 'text-slate-500'
+                current.solarPowerW > 0 ? 'text-emerald-400' : 'text-slate-400'
               }`}
             >
               {current.solarPowerW.toFixed(0)} W
@@ -139,7 +144,7 @@ export default function TelemetryHUD({
           </div>
         </div>
 
-        <div className="mt-2 flex items-center justify-between font-mono text-[10px] text-slate-400">
+        <div className="mt-2 flex items-center justify-between font-mono text-[10px] text-slate-300">
           <span>Azimuth: {current.sunAz.toFixed(1)}°</span>
           <span>
             Clearance:{' '}
@@ -156,7 +161,7 @@ export default function TelemetryHUD({
       </div>
 
       {/* 2. Direct-to-Earth (DTE) Comms Card */}
-      <div className="rounded-lg border border-slate-800 bg-[#0B1120] p-3">
+      <div className="rounded-xl border border-slate-700/80 bg-slate-900/90 p-3 shadow-md">
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             {current.isEarthVisible ? (
@@ -164,17 +169,17 @@ export default function TelemetryHUD({
             ) : (
               <WifiOff className="h-3.5 w-3.5 text-red-400" />
             )}
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-300">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-200">
               DTE X-Band Link
             </span>
           </div>
-          <span className="font-mono text-[10px] text-slate-400">
+          <span className="font-mono text-[10px] text-slate-300">
             Delay: {current.signalDelaySec.toFixed(2)}s
           </span>
         </div>
 
         <div
-          className={`mb-2 rounded border px-2.5 py-1.5 font-mono text-[11px] font-semibold ${
+          className={`mb-2 rounded-lg border px-2.5 py-1.5 font-mono text-[11px] font-semibold ${
             current.isEarthVisible
               ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300'
               : 'border-red-500/40 bg-red-500/10 text-red-300'
@@ -184,8 +189,8 @@ export default function TelemetryHUD({
         </div>
 
         <div className="grid grid-cols-3 gap-2 font-mono">
-          <div className="rounded border border-slate-800/80 bg-[#05080F] px-2 py-1.5">
-            <div className="text-[9px] uppercase text-slate-500">Earth Elev</div>
+          <div className="rounded-lg border border-slate-700/60 bg-slate-800/65 px-2 py-1.5">
+            <div className="text-[9px] uppercase text-slate-400">Earth Elev</div>
             <div
               className={`text-sm font-semibold ${
                 current.isEarthVisible ? 'text-cyan-300' : 'text-red-400'
@@ -195,15 +200,15 @@ export default function TelemetryHUD({
               {current.earthElev.toFixed(2)}°
             </div>
           </div>
-          <div className="rounded border border-slate-800/80 bg-[#05080F] px-2 py-1.5">
-            <div className="text-[9px] uppercase text-slate-500">Horizon Mask</div>
+          <div className="rounded-lg border border-slate-700/60 bg-slate-800/65 px-2 py-1.5">
+            <div className="text-[9px] uppercase text-slate-400">Horizon Mask</div>
             <div className="text-sm font-semibold text-orange-400">
               {current.terrainElevEarth.toFixed(2)}°
             </div>
           </div>
-          <div className="rounded border border-slate-800/80 bg-[#05080F] px-2 py-1.5">
-            <div className="text-[9px] uppercase text-slate-500">Earth Az</div>
-            <div className="text-sm font-semibold text-slate-200">
+          <div className="rounded-lg border border-slate-700/60 bg-slate-800/65 px-2 py-1.5">
+            <div className="text-[9px] uppercase text-slate-400">Earth Az</div>
+            <div className="text-sm font-semibold text-slate-100">
               {current.earthAz.toFixed(1)}°
             </div>
           </div>
@@ -211,7 +216,7 @@ export default function TelemetryHUD({
       </div>
 
       {/* 3. Battery SoC, Net Power & Thermal Card */}
-      <div className="rounded-lg border border-slate-800 bg-[#0B1120] p-3">
+      <div className="rounded-xl border border-slate-700/80 bg-slate-900/90 p-3 shadow-md">
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             {current.criticalPowerAlert ? (
@@ -219,18 +224,18 @@ export default function TelemetryHUD({
             ) : (
               <BatteryCharging className="h-3.5 w-3.5 text-emerald-400" />
             )}
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-300">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-200">
               EPS &amp; Thermal State
             </span>
           </div>
-          <span className="font-mono text-[10px] text-slate-400">
+          <span className="font-mono text-[10px] text-slate-300">
             Load: {CONSTANT_LOAD_W} W
           </span>
         </div>
 
         <div className="grid grid-cols-3 gap-2 font-mono">
-          <div className="rounded border border-slate-800/80 bg-[#05080F] px-2 py-1.5">
-            <div className="flex items-center gap-1 text-[9px] uppercase text-slate-500">
+          <div className="rounded-lg border border-slate-700/60 bg-slate-800/65 px-2 py-1.5">
+            <div className="flex items-center gap-1 text-[9px] uppercase text-slate-400">
               <Zap className="h-2.5 w-2.5" /> Net Pwr
             </div>
             <div
@@ -243,8 +248,8 @@ export default function TelemetryHUD({
             </div>
           </div>
 
-          <div className="rounded border border-slate-800/80 bg-[#05080F] px-2 py-1.5">
-            <div className="text-[9px] uppercase text-slate-500">Battery SoC</div>
+          <div className="rounded-lg border border-slate-700/60 bg-slate-800/65 px-2 py-1.5">
+            <div className="text-[9px] uppercase text-slate-400">Battery SoC</div>
             <div
               className={`text-sm font-semibold ${
                 current.criticalPowerAlert
@@ -258,8 +263,8 @@ export default function TelemetryHUD({
             </div>
           </div>
 
-          <div className="rounded border border-slate-800/80 bg-[#05080F] px-2 py-1.5">
-            <div className="flex items-center gap-1 text-[9px] uppercase text-slate-500">
+          <div className="rounded-lg border border-slate-700/60 bg-slate-800/65 px-2 py-1.5">
+            <div className="flex items-center gap-1 text-[9px] uppercase text-slate-400">
               <Thermometer className="h-2.5 w-2.5" /> Ext Temp
             </div>
             <div
@@ -275,7 +280,7 @@ export default function TelemetryHUD({
 
         {/* Battery progress bar with 20% critical line */}
         <div className="mt-2.5">
-          <div className="relative h-2 w-full overflow-hidden rounded-full bg-slate-900">
+          <div className="relative h-2 w-full overflow-hidden rounded-full bg-slate-800">
             <div
               className={`h-full transition-all duration-200 ${
                 current.criticalPowerAlert
@@ -292,7 +297,7 @@ export default function TelemetryHUD({
               title="20% Critical Power Threshold"
             />
           </div>
-          <div className="mt-1 flex justify-between font-mono text-[10px] text-slate-500">
+          <div className="mt-1 flex justify-between font-mono text-[10px] text-slate-400">
             <span>
               {current.batteryWh.toFixed(0)} / {BATTERY_CAPACITY_WH} Wh
             </span>
@@ -305,9 +310,9 @@ export default function TelemetryHUD({
       <PolarHorizonRadar site={site} telemetry={telemetry} current={current} />
 
       {/* 5. 14-Day Battery SoC Trend Chart */}
-      <div className="rounded-lg border border-slate-800 bg-[#0B1120] p-3">
+      <div className="rounded-xl border border-slate-700/80 bg-slate-900/90 p-3 shadow-md">
         <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-300">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-200">
             14-Day Battery Profile
           </span>
           <span className="font-mono text-[10px] text-slate-400">Click to scrub</span>
@@ -315,10 +320,30 @@ export default function TelemetryHUD({
         <svg
           viewBox="0 0 320 76"
           onClick={handleChartClick}
-          className="h-20 w-full cursor-pointer rounded border border-slate-800/80 bg-[#05080F]"
+          className="h-20 w-full cursor-pointer rounded-lg border border-slate-700/70 bg-slate-950/80"
           role="img"
           aria-label="14-day battery state of charge curve"
         >
+          <defs>
+            <linearGradient id="socAreaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#10b981" stopOpacity="0.32" />
+              <stop offset="100%" stopColor="#10b981" stopOpacity="0.02" />
+            </linearGradient>
+          </defs>
+
+          {/* Day reference gridlines (D3, D7, D10) */}
+          {[72, 160, 238].map((xPos) => (
+            <line
+              key={xPos}
+              x1={xPos}
+              y1="4"
+              x2={xPos}
+              y2="72"
+              stroke="#1e293b"
+              strokeWidth="0.8"
+            />
+          ))}
+
           {/* 20% critical threshold line */}
           <line
             x1="0"
@@ -326,20 +351,21 @@ export default function TelemetryHUD({
             x2="320"
             y2={criticalY}
             stroke="#ef4444"
-            strokeOpacity="0.45"
+            strokeOpacity="0.55"
             strokeWidth="1"
             strokeDasharray="3 3"
           />
-          <text x="4" y={criticalY - 3} fill="#ef4444" fontSize="8" fontFamily="monospace">
+          <text x="4" y={criticalY - 3} fill="#f87171" fontSize="8" fontFamily="monospace">
             20% CRIT
           </text>
 
-          {/* SoC Curve */}
+          {/* SoC Gradient Area & Curve */}
+          {socAreaPath && <path d={socAreaPath} fill="url(#socAreaGrad)" />}
           <path
             d={socPath}
             fill="none"
-            stroke="#10b981"
-            strokeWidth="1.6"
+            stroke="#34d399"
+            strokeWidth="1.75"
             strokeLinejoin="round"
           />
 

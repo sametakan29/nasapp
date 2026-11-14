@@ -62,7 +62,7 @@ export default function TimelineScrubber({
   return (
     <section
       aria-label="Mission Timeline Scrubber"
-      className="border-t border-slate-800 bg-[#080D1A] px-4 py-2.5"
+      className="border-t border-slate-700/80 bg-slate-900/95 px-4 py-2.5"
     >
       {/* Controls & Timestamp Row */}
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -88,7 +88,7 @@ export default function TimelineScrubber({
             type="button"
             onClick={() => onSelectHour(Math.max(0, hourIndex - 1))}
             disabled={hourIndex <= 0}
-            className="rounded border border-slate-700 bg-slate-900 p-1.5 text-slate-300 transition hover:border-slate-600 disabled:opacity-40"
+            className="rounded border border-slate-600/80 bg-slate-800/80 p-1.5 text-slate-200 transition hover:border-slate-500 hover:bg-slate-700/80 disabled:opacity-40"
             title="Step back 1 hour"
             aria-label="Step back 1 hour"
           >
@@ -99,7 +99,7 @@ export default function TimelineScrubber({
             type="button"
             onClick={() => onSelectHour(Math.min(maxIdx, hourIndex + 1))}
             disabled={hourIndex >= maxIdx}
-            className="rounded border border-slate-700 bg-slate-900 p-1.5 text-slate-300 transition hover:border-slate-600 disabled:opacity-40"
+            className="rounded border border-slate-600/80 bg-slate-800/80 p-1.5 text-slate-200 transition hover:border-slate-500 hover:bg-slate-700/80 disabled:opacity-40"
             title="Step forward 1 hour"
             aria-label="Step forward 1 hour"
           >
@@ -109,14 +109,14 @@ export default function TimelineScrubber({
           <button
             type="button"
             onClick={() => onSelectHour(0)}
-            className="rounded border border-slate-700 bg-slate-900 p-1.5 text-slate-300 transition hover:border-slate-600"
+            className="rounded border border-slate-600/80 bg-slate-800/80 p-1.5 text-slate-200 transition hover:border-slate-500 hover:bg-slate-700/80"
             title="Reset timeline to Hour 0"
             aria-label="Reset timeline to Hour 0"
           >
             <RotateCcw className="h-3.5 w-3.5" />
           </button>
 
-          <div className="ml-1 flex items-center rounded border border-slate-800 bg-[#05080F] p-0.5 font-mono text-[10px]">
+          <div className="ml-1 flex items-center rounded border border-slate-700/80 bg-slate-800/75 p-0.5 font-mono text-[10px]">
             {([1, 2, 4] as const).map((speed) => (
               <button
                 key={speed}
@@ -125,7 +125,7 @@ export default function TimelineScrubber({
                 className={`rounded px-1.5 py-0.5 transition ${
                   playbackSpeed === speed
                     ? 'bg-cyan-500/25 font-bold text-cyan-300'
-                    : 'text-slate-400 hover:text-slate-200'
+                    : 'text-slate-300 hover:text-white'
                 }`}
                 title={`${speed} hour(s) per second`}
               >
@@ -139,11 +139,11 @@ export default function TimelineScrubber({
         <div className="flex flex-wrap items-center gap-3 font-mono text-xs">
           {current && (
             <>
-              <span className="text-slate-200">
+              <span className="text-slate-100">
                 {formatUtcDisplay(current.timestampUtc)}
               </span>
-              <span className="rounded border border-slate-800 bg-[#05080F] px-2 py-0.5 text-[11px] text-cyan-300">
-                {formatMet(hourIndex)} <span className="text-slate-500">(Hour {hourIndex + 1} / {telemetry.length})</span>
+              <span className="rounded border border-slate-700/80 bg-slate-800/75 px-2 py-0.5 text-[11px] text-cyan-300">
+                {formatMet(hourIndex)} <span className="text-slate-400">(Hour {hourIndex + 1} / {telemetry.length})</span>
               </span>
               <span
                 className={`rounded border px-2 py-0.5 text-[10px] font-semibold ${statusBadge.cls}`}
@@ -174,7 +174,7 @@ export default function TimelineScrubber({
       {/* Color-Coded 336-Hour Segment Bar + Interactive Slider */}
       <div className="relative flex flex-col gap-1">
         <div
-          className="flex h-3 w-full overflow-hidden rounded border border-slate-800 bg-[#05080F]"
+          className="flex h-3 w-full overflow-hidden rounded border border-slate-700/80 bg-slate-950/90"
           aria-hidden="true"
         >
           {telemetry.map((item) => {
@@ -205,10 +205,10 @@ export default function TimelineScrubber({
           value={hourIndex}
           onChange={(e) => onSelectHour(Number(e.target.value))}
           aria-label="Mission hour scrubber (0 to 335 hours)"
-          className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-800 accent-cyan-400"
+          className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-700/80 accent-cyan-400"
         />
 
-        <div className="flex justify-between font-mono text-[9px] text-slate-500">
+        <div className="flex justify-between font-mono text-[9px] text-slate-400">
           <span>DAY 0 (Nov 15)</span>
           <span>DAY 3</span>
           <span>DAY 7</span>
